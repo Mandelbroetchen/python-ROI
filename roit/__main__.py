@@ -11,17 +11,21 @@ def parse_args():
     return parser.parse_args()
 
 if __name__ == "__main__":
+
     args = parse_args()
     
     roit = Roit()
+    for roi in Roit.ROI:
 
-    imset_in = Imset(args.input)
+        roit.roi = roi
+        
+        imset_in = Imset(args.input)
 
-    imset_out = roit.transform_imset(imset_in)
+        imset_out = roit.transform_imset(imset_in)
 
-    if args.output is not None:
-        imset_out.root = args.output
-    
-    imset_out.save()
-    
+        if args.output is not None:
+            imset_out.root = args.output
+        
+        imset_out.save()
+        
     

@@ -26,7 +26,7 @@ class Roid:
     def transform(self):
         self.target = Imset()
         self.target.root = Path(self.target_path)
-        for roi in self.roit.ROI:
+        for roi in Roit.ROI:
             self.roit.roi = roi
             imset_new = self.roit.transform_imset(self.source)
             self.target[imset_new.root.name] = imset_new

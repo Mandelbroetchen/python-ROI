@@ -71,7 +71,7 @@ class Roit:
         #self._load_dino_encoder()
         print("[Roit] All models loaded successfully")
 
-    @log_time    
+    #@log_time    
     def _load_diffusion_pipeline(self):
         self.diffusion_pipeline = StableDiffusionImg2ImgPipeline.from_pretrained(
             "runwayml/stable-diffusion-v1-5",
@@ -82,7 +82,7 @@ class Roit:
         )
         self.diffusion_pipeline.safety_checker = None
 
-    @log_time
+    #@log_time
     def _load_ip_adapter(self):
         clip_model_name = "laion/CLIP-ViT-H-14-laion2B-s32B-b79K"
         self.ip_model = IPAdapter(
@@ -92,11 +92,11 @@ class Roit:
             self.device
         )
 
-    @log_time
+    #@log_time
     def _load_clip(self):
         self.clip_extractor = CLIPExtractor(self.device)
     
-    @log_time
+    #@log_time
     def _load_dino_encoder(self):
         self.dino_encoder = {}
         for roi in self.ROI:
@@ -106,7 +106,7 @@ class Roit:
                 strict=False
             ).to(self.device).eval()
     
-    @log_time
+    #@log_time
     def _load_mod_embed(self):
         name = f"subj1_{self.roi}_mod_embed_{'max' if self.maximize else 'min'}.npy"
         if name in self._mod_embed:
@@ -116,7 +116,7 @@ class Roit:
         self._mod_embed[name] = mod_embed
         return mod_embed
 
-    @log_time
+    #@log_time
     def modulated_embedding(self, image_ref):
         image_ref_clip = self.clip_extractor(image_ref).detach().cpu().numpy()
         mod_embed = self._load_mod_embed()
@@ -126,7 +126,7 @@ class Roit:
         ).unsqueeze(1).to(self.device)[0]
         return embeds
     
-    @log_time
+    #@log_time
     def transform(self, image_ref):
         with torch.no_grad():
             embeds = self.modulated_embedding(image_ref)
@@ -140,7 +140,7 @@ class Roit:
             )[0]
         return image_new
     
-    @log_time
+    #@log_time
     def transform_imset(self, imset_ref):
         imset_new = Imset()
 
@@ -149,7 +149,7 @@ class Roit:
  
         imset_new.root = imset_ref.root.parent / f"{imset_ref.root.stem}-{suffix}{imset_ref.root.suffix}"
         for key, obj in imset_ref.items():
-            print(f"[Roit] Transforming {key} in {imset_ref.root}...")
+            print(f"[Roit] Transforming {key} in {imset_ref.root} to {self.roi}")
             if isinstance(obj, dict):
                 imset_new[key] = self.transform_imset(obj)
             else:
