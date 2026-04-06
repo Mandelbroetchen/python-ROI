@@ -141,7 +141,7 @@ class Roit:
         return image_new, embeds, ref
     
     #@log_time
-    def transform_imset(self, imset_ref):
+    def transform_imset(self, imset_ref, generate = True):
         imset_new = Imset()
         trans = lambda x: str(x).replace(".", "d")
         suffix = f"{self.roi}-{self.maximize}-{trans(self.alpha)}-{trans(self.gamma)}-{self.seed}"
@@ -152,7 +152,10 @@ class Roit:
             if isinstance(obj, dict):
                 imset_new[key] = self.transform_imset(obj)
             else:
-                imset_new[key], embd_clip, ref_clip = self.transform(obj)
+                if generate:
+                    imset_new[key], embd_clip, ref_clip = self.transform(obj)
+                else:
+                    embd_clip, ref_clip = self.modulated_embedding(obj)
                 imset_new[f"{key}.json"] = {
                     "reference": ref_clip,
                     "embedded": embd_clip
