@@ -124,12 +124,12 @@ class Roit:
         embeds = torch.from_numpy(
             slerp(image_ref_clip, endpoint, 1, t0=self.alpha, t1=self.alpha)
         ).unsqueeze(1).to(self.device)[0]
-        return embeds
+        return embeds, image_ref_clip
     
     #@log_time
     def transform(self, image_ref):
         with torch.no_grad():
-            embeds = self.modulated_embedding(image_ref)
+            embeds, ref = self.modulated_embedding(image_ref)
             image_new = self.ip_model.generate(
                 clip_image_embeds=embeds,
                 image=image_ref,
@@ -138,12 +138,11 @@ class Roit:
                 num_inference_steps=50,
                 seed=self.seed
             )[0]
-        return image_new
+        return image_new, embeds, ref
     
     #@log_time
     def transform_imset(self, imset_ref):
         imset_new = Imset()
-
         trans = lambda x: str(x).replace(".", "d")
         suffix = f"{self.roi}-{self.maximize}-{trans(self.alpha)}-{trans(self.gamma)}-{self.seed}"
  
@@ -153,5 +152,9 @@ class Roit:
             if isinstance(obj, dict):
                 imset_new[key] = self.transform_imset(obj)
             else:
-                imset_new[key] = self.transform(obj)
+                imset_new[key], embd_clip, ref_clip = self.transform(obj)
+                imset_new[f"{key}.json"] = {
+                    "reference": ref_clip,
+                    "embedded": embd_clip
+                }
         return imset_new

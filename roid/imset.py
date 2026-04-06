@@ -1,5 +1,6 @@
 from pathlib import Path
 from PIL import Image
+import json
 from roit.utils import log_time
 
 class Imset(dict):
@@ -39,6 +40,10 @@ class Imset(dict):
             elif path.is_file() and path.suffix.lower() in self.extensions:
                 image = Image.open(path).convert("RGB").resize(self.resolution)
                 self[path.name] = image
+
+            elif path.is_file() and path.suffix.lower() in (".json", ".JSON"):
+                with open(path, "r") as f:
+                    self[path.name] = json.load(f)
 
     def __repr__(self):
         return self._repr(level=0)
@@ -84,7 +89,11 @@ class Imset(dict):
                 subfolder_path.mkdir(parents=True, exist_ok=True)
                 obj.save(subfolder_path)  # Recursively save sub-Imset
             else:
-                # Save image to disk
                 path.mkdir(parents=True, exist_ok=True)  # Make sure parent exists
-                image_path = path / key
-                obj.save(image_path)
+                path = path / key
+                # Save image to disk
+                if isinstance(obj, Image):
+                    obj.save(path)
+                if isinstance(obj, dict):
+                    with open(path, "w") as f:
+                        json.dump(obj, f, indent=2)
