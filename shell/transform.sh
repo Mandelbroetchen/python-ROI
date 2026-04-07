@@ -21,5 +21,5 @@ echo "GPUs:        $CUDA_VISIBLE_DEVICES"
 # ── Run your workload ─────────────────────────────────────
 python3 -m roid \
     --source "datasets/tiny-test" 
-
+    --target "datasets/tiny-test-clips"
 #python3 hello.py

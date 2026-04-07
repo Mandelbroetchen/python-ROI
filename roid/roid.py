@@ -17,7 +17,9 @@ class Roid:
             trans = lambda x: str(x).replace(".", "d")
             suffix = f"{self.roit.maximize}-{trans(self.roit.alpha)}-{trans(self.roit.gamma)}-{self.roit.seed}"
             self.target_path = self.source.root.parent / f"{self.source.root.name}-{suffix}"
-
+        else:
+            self.target_path = target_path
+            
         if not Path(self.target_path).exists():
             self.target = None
         else:
@@ -28,7 +30,7 @@ class Roid:
         self.target.root = Path(self.target_path)
         for roi in Roit.ROI:
             self.roit.roi = roi
-            imset_new = self.roit.transform_imset(self.source)
+            imset_new = self.roit.transform_imset(self.source, generate = False)
             self.target[imset_new.root.name] = imset_new
 
 

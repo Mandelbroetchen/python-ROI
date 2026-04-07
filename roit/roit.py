@@ -157,7 +157,7 @@ class Roit:
                 else:
                     embd_clip, ref_clip = self.modulated_embedding(obj)
                 imset_new[f"{key}.json"] = {
-                    "reference": ref_clip,
-                    "embedded": embd_clip
+                    "reference": ref_clip.tolist(),
+                    "embedded": embd_clip.tolist()
                 }
         return imset_new

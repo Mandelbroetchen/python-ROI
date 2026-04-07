@@ -90,10 +90,10 @@ class Imset(dict):
                 obj.save(subfolder_path)  # Recursively save sub-Imset
             else:
                 path.mkdir(parents=True, exist_ok=True)  # Make sure parent exists
-                path = path / key
+                path_file = path / key
                 # Save image to disk
-                if isinstance(obj, Image):
-                    obj.save(path)
+                if isinstance(obj, Image.Image):
+                    obj.save(path_file)
                 if isinstance(obj, dict):
-                    with open(path, "w") as f:
+                    with open(path_file, "w") as f:
                         json.dump(obj, f, indent=2)
