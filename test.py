@@ -1,36 +1,87 @@
+import os
+import gc
+from pathlib import Path
+
+import torch
+from clip_interrogator import Config, Interrogator
+
 from roid.imset import Imset
 from roit.roit import Roit
 
-from pathlib import Path
-import numpy as np
-import torch
+# ── Config ────────────────────────────────────────────────────────────────────
 
-roit = Roit()
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
-imset = Imset(Path("./datasets/tiny-test-clips-5"))
+DATASET_PATH = Path("./datasets/tiny-test-clips-5")
+SAMPLE_KEY   = "tiny-test-5-EBA-True-0d7-0d6-42"
+IMAGE_KEY    = "test_0.JPEG.json"
+CLIP_MODEL   = "ViT-H-14/laion2b_s32b_b79k"
+BATCH_SIZE   = 16
 
+# ── Load data ─────────────────────────────────────────────────────────────────
 
-ref = torch.tensor(
-    imset["tiny-test-5-EBA-True-0d7-0d6-42"]["test_0.JPEG.json"]["reference"],
-    dtype=torch.float32)
-emb = torch.tensor(
-    imset["tiny-test-5-EBA-True-0d7-0d6-42"]["test_0.JPEG.json"]["embedded"], 
-    dtype=torch.float32)
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+roit  = Roit()
+imset = Imset(DATASET_PATH)
+
+sample = imset[SAMPLE_KEY][IMAGE_KEY]
+
+ref = torch.tensor(sample["reference"], dtype=torch.float32).to(device)
+emb = torch.tensor(sample["embedded"],  dtype=torch.float32).to(device)
 dif = emb - ref
 
-from clip_interrogator import Config, Interrogator
-import torch
+# ── Load CLIP interrogator ────────────────────────────────────────────────────
 
-ci = Interrogator(Config(clip_model_name="ViT-H-14/laion2b_s32b_b79k"))
+torch.cuda.empty_cache()
+gc.collect()
 
-clip_tensor = dif  # shape: (1024,)
-clip_tensor = clip_tensor / clip_tensor.norm(dim=-1, keepdim=True)
+config = Config(
+    clip_model_name=CLIP_MODEL,
+    clip_offload=True,
+    caption_offload=True,
+    chunk_size=512,
+)
+ci = Interrogator(config)
 
-prompt = ", ".join([
-    *ci.rank_top(clip_tensor, ci.mediums.labels   ),
-    *ci.rank_top(clip_tensor, ci.movements.labels),
-    *ci.rank_top(clip_tensor, ci.flavors.labels),
-    *ci.rank_top(clip_tensor, ci.artists.labels),
-])
+# ── Prepare query vector ──────────────────────────────────────────────────────
 
+query = dif
+if query.dim() == 1:
+    query = query.unsqueeze(0)                    # [1, D]
+query = query / query.norm(dim=-1, keepdim=True)  # L2-normalise
+
+# ── Batched ranking ───────────────────────────────────────────────────────────
+
+def rank_top_batched(ci, image_features, labels, top_count=1, batch_size=16):
+    all_sims = []
+
+    for i in range(0, len(labels), batch_size):
+        batch  = labels[i : i + batch_size]
+        tokens = ci.tokenize(batch).to(ci.device)
+
+        with torch.no_grad(), torch.amp.autocast("cuda"):
+            text_features = ci.clip_model.encode_text(tokens)
+            text_features = text_features / text_features.norm(dim=-1, keepdim=True)
+
+        sims = (image_features @ text_features.T).squeeze(0)
+        all_sims.append(sims.cpu())
+
+        del tokens, text_features, sims
+        torch.cuda.empty_cache()
+
+    all_sims    = torch.cat(all_sims)
+    top_indices = all_sims.topk(top_count).indices
+    return [labels[i] for i in top_indices.tolist()]
+
+# ── Build prompt ──────────────────────────────────────────────────────────────
+
+prompt_parts = []
+for label_set in [ci.mediums, ci.movements, ci.flavors, ci.artists]:
+    torch.cuda.empty_cache()
+    gc.collect()
+    tops = rank_top_batched(ci, query, label_set.labels, top_count=1, batch_size=BATCH_SIZE)
+    prompt_parts.extend(tops)
+
+prompt = ", ".join(prompt_parts)
 print(prompt)
